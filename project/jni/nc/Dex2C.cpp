@@ -262,7 +262,7 @@ bool d2c_resolve_field(JNIEnv *env, jclass *cached_class, jfieldID *cached_field
 extern "C" {
 
 JNIEXPORT void JNICALL
-Java_amimo_dcc_DccApplication_initDcc__(JNIEnv *env, jobject thiz) {
+Java_amimo_dcc_DccApplication_init__(JNIEnv *env, jobject thiz) {
 
 }
 
