@@ -1033,7 +1033,7 @@ def dcc_main(
             line_to_insert = (
                 "    invoke-static {}, L"
                 + custom_loader.replace(".", "/")
-                + ";->initDcc()V\n"
+                + ";->init()V\n"
             )
 
             code_block_to_append = f"""

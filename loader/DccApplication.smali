@@ -16,7 +16,5 @@
 .method public native constructor <init>()V
 .end method
 
-.method public static final native initDcc()V
+.method public static final native init()V
 .end method
-
-
