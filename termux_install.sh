@@ -169,19 +169,6 @@ fi
 echo "${yellow}ANDROID NDK Successfully Installed!${nocolor}"
 
 cd "$HOME" || exit
-echo
-echo "${green}━━━ Setting up apktool ━━━${nocolor}"
-if [ -f "$PREFIX/bin/apktool.jar" ]; then
-  echo "${blue}apktool is already installed${nocolor}"
-else
-  sh -c 'wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.10.0.jar -O $PREFIX/bin/apktool.jar'
-
-  chmod +r "$PREFIX"/bin/apktool.jar
-
-  sh -c 'wget https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -O $PREFIX/bin/apktool' && chmod +x "$PREFIX"/bin/apktool || exit 2
-fi
-
-cd "$HOME" || exit
 if [ -d "dex2c" ]; then
   cd dex2c || exit
 elif [ -f "dcc.py" ] && [ -d "tools" ]; then
@@ -191,11 +178,11 @@ else
   cd dex2c || exit 2
 fi
 
-if [ -f "$HOME/dex2c/tools/apktool.jar" ]; then
-  rm "$HOME"/dex2c/tools/apktool.jar
-  cp "$PREFIX"/bin/apktool.jar "$HOME"/dex2c/tools/apktool.jar
+if [ -f "$HOME/dex2c/tools/apkeditor.jar" ]; then
+  rm $HOME/dex2c/tools/apkeditor.jar
+  cp $PREFIX/bin/apkeditor.jar $HOME/dex2c/tools/apkeditor.jar
 else
-  sh -c 'wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.10.0.jar -O $HOME/dex2c/tools/apktool.jar'
+  sh -c 'wget https://github.com/REAndroid/APKEditor/releases/download/V1.4.1/APKEditor-1.4.1.jar -O $HOME/dex2c/tools/apkeditor.jar'
 fi
 
 cd ~/dex2c || exit
@@ -246,7 +233,7 @@ fi
 
 cat >"$HOME"/dex2c/dcc.cfg <<EOL
 {
-    "apktool": "tools/apktool.jar",
+    "apkeditor": "tools/apkeditor.jar",
     "ndk_dir": "$HOME/android-sdk/ndk/${ndk_version}",
     "signature": {
         "keystore_path": "keystore/debug.keystore",

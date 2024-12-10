@@ -11,7 +11,7 @@ __pycache__/
 *.apk
 *.idsig
 *.zip
-tools/apktool.jar
+#tools/apkeditor.jar
 
 # C extensions
 *.so
