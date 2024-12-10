@@ -74,15 +74,15 @@ Python 3.8 or higher is required for running this tool. So, make sure your pytho
 
 1. Clone the repo.
    ```bash
-   git clone https://github.com/codehasan/dex2c
+   git clone https://github.com/rufusin/Dex2C
    ```
 2. Open the cloned directory.
    ```bash
-   cd dex2c
+   cd Dex2C
    ```
-3. Download **Apktool** latest version from [bitbucket](https://bitbucket.org/iBotPeaches/apktool/downloads/) and save it in `tools` folder with the name `apktool.jar`
+3. Download **APKEditor** latest version from [github](https://github.com/REAndroid/APKEditor/releases) and save it in `tools` folder with the name `apkeditor.jar`
    ```bash
-   wget -O tools/apktool.jar https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.10.0.jar
+   wget -O tools/apkeditor.jar https://github.com/REAndroid/APKEditor/releases/download/V1.4.2/APKEditor-1.4.2.jar
    ```
 4. <a href="https://developer.android.com/ndk/downloads">Download</a> android NDK for your OS and extract it. Copy the folder path where `ndk-build` executable is located inside the extracted folder and configure `ndk_dir` in `dcc.cfg`
 
