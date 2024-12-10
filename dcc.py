@@ -32,9 +32,9 @@ from shutil import copy, move, make_archive, rmtree, copytree
 current_dir = os.path.dirname(os.path.abspath(__file__))
 tools_dir = os.path.join(current_dir, "tools")
 
-APKTOOL = os.path.join(tools_dir, "apktool.jar")
-APKTOOL2 = os.path.join(tools_dir, "apktool.bat")
-APKTOOL3 = os.path.join(tools_dir, "apktool")
+APKEDITOR = os.path.join(tools_dir, "apkeditor.jar")
+APKEDITOR2 = os.path.join(tools_dir, "apkeditor.bat")
+APKEDITOR3 = os.path.join(tools_dir, "apkeditor")
 SIGNJAR = os.path.join(tools_dir, "apksigner.jar")
 MANIFEST_EDITOR = os.path.join(tools_dir, "manifest-editor.jar")
 NDKBUILD = "ndk-build"
@@ -96,42 +96,6 @@ def make_temp_file(suffix=""):
     return tmp
 
 
-def modify_application_name(manifest_path, custom_loader):
-    from xml.etree import ElementTree as ET
-
-    ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
-
-    with open(manifest_path, "r") as f:
-        file_contents = f.read()
-
-    manifest_start = file_contents.index("<manifest")
-    before_manifest = file_contents[:manifest_start]
-
-    root = ET.fromstring(file_contents[manifest_start:])
-
-    application = root.find("application")
-    if "{http://schemas.android.com/apk/res/android}name" in application.attrib:
-        application.attrib["{http://schemas.android.com/apk/res/android}name"] = (
-            custom_loader
-        )
-    else:
-        application.set("android:name", custom_loader)
-
-    if (
-        "{http://schemas.android.com/apk/res/android}extractNativeLibs"
-        in application.attrib
-    ):
-        application.attrib[
-            "{http://schemas.android.com/apk/res/android}extractNativeLibs"
-        ] = "true"
-
-    xml_str = ET.tostring(root, encoding="utf-8").decode()
-    output = before_manifest + xml_str
-
-    with open(manifest_path, "w") as f:
-        f.write(output)
-
-
 # n
 def clean_tmp_directory():
     tmpdir = ".tmp"
@@ -142,20 +106,20 @@ def clean_tmp_directory():
         run(["rd", "/s", "/q", tmpdir], shell=True)
 
 
-class ApkTool(object):
+class ApkEditor(object):
     dcc_cfg = {}
     with open("dcc.cfg") as fp:
         dcc_cfg = json.load(fp)
 
-    APKTOOL = dcc_cfg["apktool"]
+    APKEDITOR = dcc_cfg["apkeditor"]
 
     @staticmethod
     def decompile(apk):
-        outdir = make_temp_dir("dcc-apktool-")
+        outdir = make_temp_dir("dcc-apkeditor-")
         if is_windows():
-            check_call([APKTOOL2, "d", "-resm", "keep", "-f", "-o", outdir, apk])
+            check_call([APKEDITOR2, "d", "-f", "-t", "raw", "-i", apk, "-o", outdir])
         else:
-            check_call(["bash", APKTOOL3, "d", "-r", "-f", "-o", outdir, apk])
+            check_call(["bash", APKEDITOR3, "d", "-f", "-t", "raw", "-i", apk, "-o", outdir])
         return outdir
 
     @staticmethod
@@ -163,20 +127,14 @@ class ApkTool(object):
         unsigned_apk = make_temp_file("-unsigned.apk")
         if is_windows():
             check_call(
-                [APKTOOL2, "b", "--advanced", "-o", unsigned_apk, decompiled_dir],
+                # Add flag "-no-cache" to ignore built cached .dex files and re-build smali files.
+                [APKEDITOR2, "b", "-f", "-i", decompiled_dir, "-o", unsigned_apk],
                 stderr=STDOUT,
             )
         else:
             check_call(
-                [
-                    "bash",
-                    APKTOOL3,
-                    "b",
-                    "--advanced",
-                    "-o",
-                    unsigned_apk,
-                    decompiled_dir,
-                ],
+                # Add flag "-no-cache" to ignore built cached .dex files and re-build smali files.
+                ["bash", APKEDITOR3, "b", "-f", "-i", decompiled_dir, "-o", unsigned_apk],
                 stderr=STDOUT,
             )
         return unsigned_apk
@@ -442,6 +400,10 @@ class MethodFilter(object):
         if name == "<clinit>":
             return False
 
+        # Skip public constructor
+        # if name == "<init>":
+            # return False
+
         # Android VM may find the wrong method using short jni name
         # don't compile function if there is a same named native method
         if (cls_name, name) in self.native_methods:
@@ -467,7 +429,7 @@ class MethodFilter(object):
 
 def copy_compiled_libs(project_dir, decompiled_dir):
     compiled_libs_dir = path.join(project_dir, "libs")
-    decompiled_libs_dir = path.join(decompiled_dir, "lib")
+    decompiled_libs_dir = path.join(decompiled_dir, "root", "lib")
     if not path.exists(compiled_libs_dir):
         return
     if not path.exists(decompiled_libs_dir):
@@ -558,9 +520,13 @@ def native_class_methods(smali_path, compiled_methods):
 
 
 def native_compiled_dexes(decompiled_dir, compiled_methods):
-    # smali smali_classes2 smali_classes3 ...
+    Logger.info("Editing smali files...")
+    todo = []
+    # smali/ classes, classes2, classes3 ...
     classes_output = list(
-        filter(lambda x: x.find("smali") >= 0, os.listdir(decompiled_dir))
+        filter(
+            lambda x: x.find("classes") >= 0, os.listdir(path.join(decompiled_dir, "smali"))
+        )
     )
     # print(classes_output)
     todo = []
@@ -568,7 +534,7 @@ def native_compiled_dexes(decompiled_dir, compiled_methods):
         for method_triple in compiled_methods.keys():
             cls_name, name, proto = method_triple
             cls_name = cls_name[1:-1]  # strip L;
-            smali_path = path.join(decompiled_dir, classes, cls_name) + ".smali"
+            smali_path = (path.join(path.join(decompiled_dir, "smali"), classes, cls_name) + ".smali")
             if path.exists(smali_path):
                 todo.append(smali_path)
     # print(smali_path)
@@ -683,11 +649,11 @@ def get_application_name_from_manifest(apk_file):
 
 # n
 def get_smali_folders(decompiled_dir):
-    folders = os.listdir(decompiled_dir)
+    folders = os.listdir(path.join(decompiled_dir, "smali"))
     folders = [
         folder
         for folder in folders
-        if path.isdir(path.join(decompiled_dir, folder)) and folder.startswith("smali")
+        if path.isdir(path.join(path.join(decompiled_dir, "smali"), folder)) and folder.startswith("classes")
     ]
     return folders
 
@@ -698,7 +664,7 @@ def get_application_class_file(decompiled_dir, smali_folders, application_name):
         fileName = application_name.replace(".", os.sep) + ".smali"
 
         for smali_folder in smali_folders:
-            filePath = path.join(decompiled_dir, smali_folder, fileName)
+            filePath = path.join(path.join(decompiled_dir, "smali"), smali_folder, fileName)
 
             if path.exists(filePath):
                 return filePath
@@ -931,7 +897,7 @@ def dcc_main(
         build_project(project_dir)
 
     if is_apk(apkfile) and outapk:
-        decompiled_dir = ApkTool.decompile(apkfile)
+        decompiled_dir = ApkEditor.decompile(apkfile)
         native_compiled_dexes(decompiled_dir, compiled_methods)
         copy_compiled_libs(project_dir, decompiled_dir)
 
@@ -991,21 +957,16 @@ def dcc_main(
                     + "\033[0m\n"
                 )
 
-                if is_windows():
-                    modify_application_name(
-                        path.join(decompiled_dir, "AndroidManifest.xml"), custom_loader
-                    )
-                else:
-                    check_call(
-                        [
-                            "java",
-                            "-jar",
-                            MANIFEST_EDITOR,
-                            path.join(decompiled_dir, "AndroidManifest.xml"),
-                            custom_loader,
-                        ],
-                        stderr=STDOUT,
-                    )
+                check_call(
+                    [
+                        "java",
+                        "-jar",
+                        MANIFEST_EDITOR,
+                        path.join(decompiled_dir, "AndroidManifest.xml.bin"),
+                        custom_loader,
+                    ],
+                    stderr=STDOUT,
+                )
             except Exception as e:
                 Logger.error(f"Error: {e.returncode} - {e.output}", exec_info=True)
         else:
@@ -1015,22 +976,16 @@ def dcc_main(
                 + "\033[0m\n"
             )
 
-            if is_windows():
-                modify_application_name(
-                    path.join(decompiled_dir, "AndroidManifest.xml"),
+            check_call(
+                [
+                    "java",
+                    "-jar",
+                    MANIFEST_EDITOR,
+                    path.join(decompiled_dir, "AndroidManifest.xml.bin"),
                     application_class_name,
-                )
-            else:
-                check_call(
-                    [
-                        "java",
-                        "-jar",
-                        MANIFEST_EDITOR,
-                        path.join(decompiled_dir, "AndroidManifest.xml"),
-                        application_class_name,
-                    ],
-                    stderr=STDOUT,
-                )
+                ],
+                stderr=STDOUT,
+            )
 
             line_to_insert = (
                 "    invoke-static {}, L"
@@ -1081,7 +1036,7 @@ def dcc_main(
 
         if custom_loader.rfind(".") > -1:
             loaderDir = path.join(
-                decompiled_dir,
+                path.join(decompiled_dir, "smali"),
                 smali_folders[-1],
                 custom_loader[0 : custom_loader.rfind(".")].replace(".", os.sep),
             )
@@ -1090,12 +1045,12 @@ def dcc_main(
         copy(
             temp_loader,
             path.join(
-                decompiled_dir,
+                path.join(decompiled_dir, "smali"),
                 smali_folders[-1],
                 custom_loader.replace(".", os.sep) + ".smali",
             ),
         )
-        unsigned_apk = ApkTool.compile(decompiled_dir)
+        unsigned_apk = ApkEditor.compile(decompiled_dir)
         zipalign(unsigned_apk, outapk)
         if not disable_signing:
             sign(outapk, outapk)
@@ -1106,7 +1061,7 @@ sys.setrecursionlimit(5000)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-a", "--input", nargs="?", help="Input apk file path")
+    parser.add_argument("-i", "--input", nargs="?", help="Input apk file path")
     parser.add_argument("-o", "--out", nargs="?", help="Output apk file path")
     parser.add_argument(
         "-p",
@@ -1194,8 +1149,8 @@ if __name__ == "__main__":
         if not path.exists(NDKBUILD):
             raise Exception("Invalid ndk_dir path, file not found at " + NDKBUILD)
 
-    if "apktool" in dcc_cfg and path.exists(dcc_cfg["apktool"]):
-        APKTOOL = dcc_cfg["apktool"]
+    if "apkeditor" in dcc_cfg and path.exists(dcc_cfg["apkeditor"]):
+        APKEDITOR = dcc_cfg["apkeditor"]
 
     show_logging(level=INFO)
 
