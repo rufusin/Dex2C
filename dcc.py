@@ -154,10 +154,10 @@ class ApkTool(object):
 
     @staticmethod
     def compile(decompiled_dir):
-        unsiged_apk = make_temp_file("-unsigned.apk")
+        unsigned_apk = make_temp_file("-unsigned.apk")
         if is_windows():
             check_call(
-                [APKTOOL2, "b", "-o", unsiged_apk, decompiled_dir],
+                [APKTOOL2, "b", "-o", unsigned_apk, decompiled_dir],
                 stderr=STDOUT,
             )
         else:
@@ -167,12 +167,12 @@ class ApkTool(object):
                     APKTOOL3,
                     "b",
                     "-o",
-                    unsiged_apk,
+                    unsigned_apk,
                     decompiled_dir,
                 ],
                 stderr=STDOUT,
             )
-        return unsiged_apk
+        return unsigned_apk
 
 
 # n
@@ -561,6 +561,7 @@ def native_compiled_dexes(decompiled_dir, compiled_methods):
     classes_output = list(
         filter(lambda x: x.find("smali") >= 0, os.listdir(decompiled_dir))
     )
+    # print(classes_output)
     todo = []
     for classes in classes_output:
         for method_triple in compiled_methods.keys():
@@ -569,6 +570,7 @@ def native_compiled_dexes(decompiled_dir, compiled_methods):
             smali_path = path.join(decompiled_dir, classes, cls_name) + ".smali"
             if path.exists(smali_path):
                 todo.append(smali_path)
+    # print(smali_path)
 
     for smali_path in todo:
         native_class_methods(smali_path, compiled_methods)
